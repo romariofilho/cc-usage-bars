@@ -3,9 +3,7 @@
 Claude Code plan usage as compact colored bars — in the **Claude Code status line** and,
 optionally, on a **Home Assistant** dashboard.
 
-```
-Opus · my-project · context 41% · ↻ 1h47 █▌░░░░ 27% · ↻ Thu ▌░░░░░ 10%
-```
+![Claude Code status line with session and weekly usage bars in green, yellow and red](assets/statusline.png)
 
 - **Session (5 h window)** — label is the time left until it resets.
   Color by usage: 🟢 < 40% · 🟡 40–75% · 🔴 > 75%.
