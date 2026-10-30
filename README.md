@@ -5,6 +5,7 @@ optionally, on a **Home Assistant** dashboard.
 
 ![Claude Code status line with session and weekly usage bars in green, yellow and red](assets/statusline.png)
 
+- **Context** — how full the context window is: 🟢 < 60% · 🟡 60–80% · 🔴 ≥ 80%.
 - **Session (5 h window)** — label is the time left until it resets.
   Color by usage: 🟢 < 40% · 🟡 40–75% · 🔴 > 75%.
 - **Week (7 d window)** — label is the reset weekday (or `HH:MM` on reset day).
@@ -28,7 +29,7 @@ cp statusline/statusline.sh ~/.claude/statusline.sh && chmod +x ~/.claude/status
 ```
 
 Needs `jq`, `awk` and GNU `date`. Weekday names follow your locale (`LC_TIME`/`LANG`).
-Tunables (env): `CC_BARS_WIDTH` (6), `CC_BARS_SESSION_YELLOW` (40), `CC_BARS_SESSION_RED` (75),
+Tunables (env): `CC_BARS_WIDTH` (6), `CC_BARS_CONTEXT_YELLOW` (60), `CC_BARS_CONTEXT_RED` (80), `CC_BARS_SESSION_YELLOW` (40), `CC_BARS_SESSION_RED` (75),
 `CC_BARS_PACE_YELLOW` (90), `CC_BARS_PACE_RED` (100).
 
 ## 2. Home Assistant (optional)

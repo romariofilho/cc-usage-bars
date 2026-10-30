@@ -1,8 +1,9 @@
 #!/bin/bash
 # Claude Code status line: model · folder · context · plan usage bars
 #
-#   Opus · my-project · context 41% · ↻ 1h47 █▌░░░░ 27% · ↻ Thu ▌░░░░░ 10%
+#   Opus · 📁 my-project · context ██▌░░░ 41% · ↻ 1h47 █▌░░░░ 27% · ↻ Thu ▌░░░░░ 10%
 #
+# Context: green < 60%, yellow 60–80%, red >= 80%       (CC_BARS_CONTEXT_YELLOW / _RED)
 # Session (5 h window): label = time left until reset; color by usage
 #   green < 40%, yellow 40–75%, red > 75%   (CC_BARS_SESSION_YELLOW / _RED)
 # Week (7 d window): label = reset weekday (or HH:MM on reset day); color by PACE:
@@ -25,26 +26,26 @@ r5=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
 r7=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
 
 N=${CC_BARS_WIDTH:-6}
+CY=${CC_BARS_CONTEXT_YELLOW:-60}
+CR=${CC_BARS_CONTEXT_RED:-80}
 SY=${CC_BARS_SESSION_YELLOW:-40}
 SR=${CC_BARS_SESSION_RED:-75}
 PY=${CC_BARS_PACE_YELLOW:-90}
 PR=${CC_BARS_PACE_RED:-100}
 
-cor() { if [ "$1" -ge 80 ]; then printf '\033[31m'; elif [ "$1" -ge 60 ]; then printf '\033[33m'; else printf '\033[32m'; fi; }
-int() { LC_NUMERIC=C printf '%.0f' "$1"; }
-
-p=$(int "$pct")
-out=$(printf '\033[36m%s\033[0m · \033[97m%s\033[0m · context %b%s%%\033[0m' "$model" "${dir##*/}" "$(cor "$p")" "$p")
+out=$(printf '\033[36m%s\033[0m · 📁 \033[97m%s\033[0m' "$model" "${dir##*/}")
 
 # bar <pct> <session|week> <resets_at epoch> -> "label bar pct%" with ANSI colors
 bar() {
   LC_NUMERIC=C awk -v p="$1" -v mode="$2" -v r="$3" -v now="$(date +%s)" -v today="$(date +%F)" \
-      -v N="$N" -v sy="$SY" -v sr="$SR" -v py="$PY" -v pr="$PR" \
+      -v N="$N" -v cy="$CY" -v cr="$CR" -v sy="$SY" -v sr="$SR" -v py="$PY" -v pr="$PR" \
       -v day="$( [ -n "$3" ] && date -d "@${3%.*}" '+%F %a %H:%M')" '
     function band(x) { return x > sr ? 31 : (x >= sy ? 33 : 32) }
     BEGIN {
       if (p < 0) p = 0; if (p > 100) p = 100
-      if (mode == "session") {
+      if (mode == "context") {
+        c = p >= cr ? 31 : (p >= cy ? 33 : 32); lbl = "context"
+      } else if (mode == "session") {
         c = band(p)
         if (r != "") { m = int((r - now + 59) / 60); if (m < 0) m = 0; lbl = sprintf("↻ %dh%02d", int(m / 60), m % 60) }
         else lbl = "5h"
@@ -61,6 +62,8 @@ bar() {
       printf "%s \033[%dm%s\033[90m%s\033[0m %d%%", lbl, c, b, t, int(p + 0.5)
     }'
 }
+
+out+=" · $(bar "$pct" context)"
 
 if [ -n "$h5" ]; then
   out+=" · $(bar "$h5" session "$r5")"
