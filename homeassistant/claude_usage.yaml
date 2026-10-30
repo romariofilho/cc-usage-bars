@@ -1,0 +1,87 @@
+# =====================================================================
+# cc-usage-bars: uso do Claude Code (o mesmo numero do /usage) no Home Assistant
+#
+# Copie para /config/packages/claude_usage.yaml (precisa de
+#   homeassistant:
+#     packages: !include_dir_named packages
+# no configuration.yaml). Os sensores sao alimentados por POST no webhook
+# claude_usage (formato no README); quem coleta os dados fica por sua conta.
+# =====================================================================
+
+automation:
+  # avisa uma vez ao cruzar para baixo de $1 (o numeric_state so dispara de novo
+  # depois que o saldo voltar a ficar >= $1, ex. apos uma recarga)
+  - id: deepseek_saldo_baixo
+    alias: "DeepSeek | Aviso de saldo abaixo de $1"
+    mode: single
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.deepseek_saldo
+        below: 1
+    actions:
+      # troque pelo seu servico de notificacao (notify.mobile_app_..., telegram, etc.)
+      - action: notify.notify
+        data:
+          message: >-
+            ⚠️ Saldo da DeepSeek baixo: US$ {{ '%.2f' | format(states('sensor.deepseek_saldo') | float(0)) }}.
+            Recarregue em platform.deepseek.com.
+
+template:
+  - trigger:
+      - platform: webhook
+        webhook_id: claude_usage
+        allowed_methods: [POST]
+        local_only: true
+    sensor:
+      # ---- quanto ja foi usado da janela de 5 h (a "sessao" do /usage) ----
+      - name: "Claude Code sessao"
+        unique_id: claude_code_sessao
+        state: "{{ trigger.json.session_pct | round(0) }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+        icon: mdi:robot-outline
+        attributes:
+          renova_em: "{{ trigger.json.session_resets }}"
+          severidade: "{{ trigger.json.session_severity }}"
+          semana_pct: "{{ trigger.json.weekly_pct | round(0) }}"
+          semana_renova_em: "{{ trigger.json.weekly_resets }}"
+          # barras por modelo: so existem em planos com limite semanal separado
+          semana_opus_pct: "{{ (trigger.json.get('weekly_opus') or {}).get('pct') }}"
+          semana_opus_renova_em: "{{ (trigger.json.get('weekly_opus') or {}).get('renova_em') }}"
+          semana_sonnet_pct: "{{ (trigger.json.get('weekly_sonnet') or {}).get('pct') }}"
+          semana_sonnet_renova_em: "{{ (trigger.json.get('weekly_sonnet') or {}).get('renova_em') }}"
+          extra_ativo: "{{ trigger.json.get('extra_enabled', false) }}"
+          extra_pct: "{{ trigger.json.get('extra_pct', 0) | round(0) }}"
+          extra_usado: "{{ trigger.json.get('extra_used', 0) }}"
+          extra_limite: "{{ trigger.json.get('extra_limit', 0) }}"
+          extra_moeda: "{{ trigger.json.get('extra_currency', '') }}"
+          plano: "{{ trigger.json.plan }}"
+          atualizado_em: "{{ now().isoformat() }}"
+
+      # ---- quando a janela de 5 h zera ----
+      - name: "Claude Code sessao renova"
+        unique_id: claude_code_sessao_renova
+        device_class: timestamp
+        icon: mdi:clock-end
+        state: "{{ trigger.json.session_resets }}"
+        attributes:
+          atualizado_em: "{{ now().isoformat() }}"
+
+      # ---- saldo pre-pago da DeepSeek (opcional) ----
+      # payload sem o campo (sem chave ou consulta falhou): mantem o valor anterior
+      - name: "DeepSeek saldo"
+        unique_id: deepseek_saldo
+        icon: mdi:wallet-outline
+        device_class: monetary
+        unit_of_measurement: "USD"
+        state: >-
+          {{ trigger.json.deepseek_balance if trigger.json.get('deepseek_balance') is not none
+             else this.state }}
+        attributes:
+          moeda: "{{ trigger.json.get('deepseek_currency') or this.attributes.get('moeda', 'USD') }}"
+          disponivel: >-
+            {{ trigger.json.deepseek_available if trigger.json.get('deepseek_available') is not none
+               else this.attributes.get('disponivel') }}
+          atualizado_em: >-
+            {{ now().isoformat() if trigger.json.get('deepseek_balance') is not none
+               else this.attributes.get('atualizado_em') }}

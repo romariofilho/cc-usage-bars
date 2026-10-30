@@ -1,0 +1,72 @@
+# Cole no editor de YAML de um card (Dashboard > Editar > Adicionar card > Manual)
+type: markdown
+title: Claude Code
+text_only: true
+content: |
+  {%- set e = 'sensor.claude_code_sessao' -%}
+  {#- grande: troque para true para uma versao maior (tela lida de longe) -#}
+  {%- set grande = false -%}
+  {#- grande: titulo h2 e barra de 5 -#}
+  {%- set N = 5 if grande else 6 -%}
+  {#- tudo numa linha: "↻2h04 ███░░░ 25% · ↻qui █░░░░░ 10% · DS $5.87" 
+      rotulo = quando a janela renova: sessao em tempo restante, semana pelo dia (hora se for hoje) -#}
+  {#- nomes dos dias (seg..dom); ex. ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] -#}
+  {%- set dias = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'] -%}
+  {%- macro falta(ts) -%}
+  {%- set t = as_datetime(ts) if ts else none -%}
+  {%- if t -%}
+  {%- set m = [((t - now()).total_seconds() / 60) | round(0, 'ceil') | int, 0] | max -%}
+  ↻&nbsp;{{ m // 60 }}h{{ '%02d' | format(m % 60) }}
+  {%- else -%}
+  5h
+  {%- endif -%}
+  {%- endmacro -%}
+  {%- macro dia(ts) -%}
+  {%- set t = (as_datetime(ts) | as_local) if ts else none -%}
+  {%- if t -%}
+  ↻&nbsp;{{ t.strftime('%H:%M') if t.date() == now().date() else dias[t.weekday()] }}
+  {%- else -%}
+  sem
+  {%- endif -%}
+  {%- endmacro -%}
+  {%- macro item(rotulo, pct, cor) -%}
+  {%- set p = [[pct | float(0), 0] | max, 100] | min -%}
+  {%- set meios = (p / 100 * N * 2) | round(0) | int -%}
+  {%- set cheio = meios // 2 -%}
+  {%- set meio = meios % 2 -%}
+  <code>{{ rotulo }}&nbsp;<font color="{{ cor }}">{{ '█' * cheio }}{{ '▌' if meio else '' }}</font>{{ '░' * (N - cheio - meio) }}</code>&nbsp;<b>{{ p | round(0) | int }}%</b>
+  {%- endmacro -%}
+  {%- set VERDE, AMARELO, VERMELHO = '#2EC27E', '#F5C211', '#E01B24' -%}
+  {#- sessao: pela faixa de uso -#}
+  {%- macro cor_faixa(pct) -%}
+  {%- set p = pct | float(0) -%}
+  {{ VERMELHO if p > 75 else (AMARELO if p >= 40 else VERDE) }}
+  {%- endmacro -%}
+  {#- semanais: pelo ritmo. Projeta o uso no fim da janela de 7 dias mantendo o ritmo
+      atual (uso / fracao da semana ja passada): < 90% verde, 90-100% amarelo, > 100% vermelho.
+      Nas primeiras ~3 h da semana a projecao e ruido: usa so a faixa de uso. -#}
+  {%- macro cor_ritmo(pct, ts) -%}
+  {%- set p = pct | float(0) -%}
+  {%- set t = as_datetime(ts) if ts else none -%}
+  {%- set f = (1 - ((t - now()).total_seconds() / 604800)) if t else 0 -%}
+  {%- if f < 0.02 -%}
+  {{ cor_faixa(p) }}
+  {%- else -%}
+  {%- set proj = p / ([f, 1] | min) -%}
+  {{ VERMELHO if proj > 100 else (AMARELO if proj >= 90 else VERDE) }}
+  {%- endif -%}
+  {%- endmacro -%}
+  {%- set a = states[e].attributes if states[e] is defined else {} -%}
+  {%- set partes = [item(falta(a.get('renova_em')), states(e), cor_faixa(states(e))), item(dia(a.get('semana_renova_em')), a.get('semana_pct'), cor_ritmo(a.get('semana_pct'), a.get('semana_renova_em')))] -%}
+  {%- if a.get('semana_opus_pct') not in [none, '', 'None'] %}{% set partes = partes + [item(dia(a.get('semana_opus_renova_em')) ~ 'O', a.get('semana_opus_pct'), cor_ritmo(a.get('semana_opus_pct'), a.get('semana_opus_renova_em')))] %}{% endif -%}
+  {%- if a.get('semana_sonnet_pct') not in [none, '', 'None'] %}{% set partes = partes + [item(dia(a.get('semana_sonnet_renova_em')) ~ 'S', a.get('semana_sonnet_pct'), cor_ritmo(a.get('semana_sonnet_pct'), a.get('semana_sonnet_renova_em')))] %}{% endif -%}
+  {%- if a.get('extra_ativo') in [true, 'True'] %}{% set partes = partes + [item('ext', a.get('extra_pct'), cor_faixa(a.get('extra_pct')))] %}{% endif -%}
+  {%- set ds = states('sensor.deepseek_saldo') -%}
+  {%- if is_number(ds) -%}
+  {#- saldo DeepSeek: vermelho < $1 (ou conta indisponivel), amarelo < $2 -#}
+  {%- set cor_ds = VERMELHO if (ds | float < 1 or state_attr('sensor.deepseek_saldo', 'disponivel') not in [true, 'True', none])
+                   else (AMARELO if ds | float < 2 else '') -%}
+  {%- set partes = partes + ['<code>DS</code>&nbsp;' ~ ('<font color="' ~ cor_ds ~ '">' if cor_ds else '') ~ '<b>$' ~ ('%.2f' | format(ds | float)) ~ '</b>' ~ ('</font>' if cor_ds else '')] -%}
+  {%- endif -%}
+  {%- set upd = as_datetime(a.get('atualizado_em')) if a.get('atualizado_em') else none -%}
+  <center>{{ '<h2>' if grande else '' }}{{ partes | join(' · ') }}{{ ' <font color="#E5A50A">⚠</font>' if upd and (now() - upd).total_seconds() > 1800 else '' }}{{ '</h2>' if grande else '' }}</center>
