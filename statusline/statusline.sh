@@ -14,6 +14,11 @@
 #   After the week's % a (+N%) / (-N%) shows how far above/below you are vs. the pro-rata
 #   usage for the time already elapsed (same color as the bar).
 #
+# Optional balance (e.g. an API credit): set CC_BARS_BALANCE_CMD to a command that prints a number.
+#   Shown last as "🐳 $5.85", red < CC_BARS_BALANCE_RED (1), yellow < CC_BARS_BALANCE_YELLOW (2).
+#   The value is cached (CC_BARS_BALANCE_TTL seconds, default 300) and refreshed in the background,
+#   so a slow command never delays the status line. Label: CC_BARS_BALANCE_LABEL (default 🐳).
+#
 # Data comes from the JSON Claude Code pipes into the status line
 # (rate_limits.five_hour / seven_day: used_percentage + resets_at), so no API calls.
 # Needs: jq, awk, GNU date. Weekday names follow your LC_TIME/LANG.
@@ -34,6 +39,11 @@ SY=${CC_BARS_SESSION_YELLOW:-40}
 SR=${CC_BARS_SESSION_RED:-75}
 PY=${CC_BARS_PACE_YELLOW:-90}
 PR=${CC_BARS_PACE_RED:-100}
+BAL_CMD=${CC_BARS_BALANCE_CMD:-}
+BAL_TTL=${CC_BARS_BALANCE_TTL:-300}
+BAL_Y=${CC_BARS_BALANCE_YELLOW:-2}
+BAL_R=${CC_BARS_BALANCE_RED:-1}
+BAL_LABEL=${CC_BARS_BALANCE_LABEL:-🐳}
 
 out=$(printf '\033[36m%s\033[0m · 📁 \033[97m%s\033[0m' "$model" "${dir##*/}")
 
@@ -75,5 +85,18 @@ if [ -n "$h5" ]; then
   [ -n "$d7" ] && out+=" · $(bar "$d7" week "$r7")"
 elif [ -n "$d7" ]; then
   out+=" · $(bar "$d7" week "$r7")"
+fi
+if [ -n "$BAL_CMD" ]; then
+  cache=${XDG_CACHE_HOME:-$HOME/.cache}/cc-usage-bars-balance
+  if [ ! -f "$cache" ] || [ $(( $(date +%s) - $(stat -c %Y "$cache") )) -gt "$BAL_TTL" ]; then
+    mkdir -p "$(dirname "$cache")"; touch "$cache"   # avoids overlapping refreshes
+    ( v=$(timeout 10 bash -c "$BAL_CMD" 2>/dev/null | head -n1)
+      [[ "$v" =~ ^[0-9]+(\.[0-9]+)?$ ]] && echo "$v" > "$cache" ) >/dev/null 2>&1 &
+  fi
+  bal=$(cat "$cache" 2>/dev/null)
+  if [[ "$bal" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+    c=$(awk -v v="$bal" -v y="$BAL_Y" -v r="$BAL_R" 'BEGIN { print (v < r ? 31 : (v < y ? 33 : 97)) }')
+    out+=$(LC_NUMERIC=C printf ' · %s \033[%sm$%.2f\033[0m' "$BAL_LABEL" "$c" "$bal")
+  fi
 fi
 printf '%b' "$out"

@@ -34,6 +34,24 @@ Needs `jq`, `awk` and GNU `date`. Weekday names follow your locale (`LC_TIME`/`L
 Tunables (env): `CC_BARS_WIDTH` (6), `CC_BARS_CONTEXT_YELLOW` (60), `CC_BARS_CONTEXT_RED` (80), `CC_BARS_SESSION_YELLOW` (40), `CC_BARS_SESSION_RED` (75),
 `CC_BARS_PACE_YELLOW` (90), `CC_BARS_PACE_RED` (100).
 
+### Optional: show an API balance
+
+Set `CC_BARS_BALANCE_CMD` to any command that prints a number (e.g. your remaining credit) and it
+is appended as `🐳 $5.85` (red < 1, yellow < 2; `CC_BARS_BALANCE_RED` / `_YELLOW` / `_LABEL` /
+`_TTL` to tune). The value is cached for `CC_BARS_BALANCE_TTL` seconds (300) and refreshed in the
+background, so a slow command never delays the status line; if it fails or prints something that
+isn't a number, the last good value stays (or nothing is shown). Unset = feature off.
+
+```bash
+# DeepSeek balance straight from its API (needs DEEPSEEK_API_KEY in the environment)
+export CC_BARS_BALANCE_CMD='curl -s -H "Authorization: Bearer $DEEPSEEK_API_KEY" https://api.deepseek.com/user/balance | jq -r ".balance_infos[0].total_balance"'
+
+# ...or read a Home Assistant sensor over ssh
+export CC_BARS_BALANCE_CMD='ssh -o BatchMode=yes me@homeassistant "..."'
+```
+
+Set it where Claude Code starts (shell profile, or the `env` block of `~/.claude/settings.json`).
+
 ## 2. Home Assistant (optional)
 
 ```
