@@ -24,12 +24,12 @@
 sem
 {%- endif -%}
 {%- endmacro -%}
-{%- macro item(rotulo, pct, cor) -%}
+{%- macro item(rotulo, pct, cor, extra='') -%}
 {%- set p = [[pct | float(0), 0] | max, 100] | min -%}
 {%- set meios = (p / 100 * N * 2) | round(0) | int -%}
 {%- set cheio = meios // 2 -%}
 {%- set meio = meios % 2 -%}
-<code>{{ rotulo }}&nbsp;<font color="{{ cor }}">{{ '█' * cheio }}{{ '▌' if meio else '' }}</font>{{ '░' * (N - cheio - meio) }}</code>&nbsp;<b>{{ p | round(0) | int }}%</b>
+<code>{{ rotulo }}&nbsp;<font color="{{ cor }}">{{ '█' * cheio }}{{ '▌' if meio else '' }}</font>{{ '░' * (N - cheio - meio) }}</code>&nbsp;<b>{{ p | round(0) | int }}%</b>{{ extra }}
 {%- endmacro -%}
 {%- set VERDE, AMARELO, VERMELHO = '#2EC27E', '#F5C211', '#E01B24' -%}
 {#- sessao: pela faixa de uso -#}
@@ -51,8 +51,17 @@ sem
 {{ VERMELHO if proj > 100 else (AMARELO if proj >= 90 else VERDE) }}
 {%- endif -%}
 {%- endmacro -%}
+{#- how far above/below the pro-rata usage for the elapsed part of the week: " (+13%)" / " (-43%)", pace color; empty in the first ~3 h -#}
+{%- macro desvio(pct, ts) -%}
+{%- set t = as_datetime(ts) if ts else none -%}
+{%- set f = (1 - ((t - now()).total_seconds() / 604800)) if t else 0 -%}
+{%- if f >= 0.02 -%}
+{%- set dv = (pct | float(0)) - ([f, 1] | min) * 100 -%}
+&nbsp;<font color="{{ cor_ritmo(pct, ts) }}">({{ '+' if dv >= 0 else '-' }}{{ dv | abs | round(0) | int }}%)</font>
+{%- endif -%}
+{%- endmacro -%}
 {%- set a = states[e].attributes if states[e] is defined else {} -%}
-{%- set partes = [item(falta(a.get('renova_em')), states(e), cor_faixa(states(e))), item(dia(a.get('semana_renova_em')), a.get('semana_pct'), cor_ritmo(a.get('semana_pct'), a.get('semana_renova_em')))] -%}
+{%- set partes = [item(falta(a.get('renova_em')), states(e), cor_faixa(states(e))), item(dia(a.get('semana_renova_em')), a.get('semana_pct'), cor_ritmo(a.get('semana_pct'), a.get('semana_renova_em')), desvio(a.get('semana_pct'), a.get('semana_renova_em')))] -%}
 {%- if a.get('semana_opus_pct') not in [none, '', 'None'] %}{% set partes = partes + [item(dia(a.get('semana_opus_renova_em')) ~ 'O', a.get('semana_opus_pct'), cor_ritmo(a.get('semana_opus_pct'), a.get('semana_opus_renova_em')))] %}{% endif -%}
 {%- if a.get('semana_sonnet_pct') not in [none, '', 'None'] %}{% set partes = partes + [item(dia(a.get('semana_sonnet_renova_em')) ~ 'S', a.get('semana_sonnet_pct'), cor_ritmo(a.get('semana_sonnet_pct'), a.get('semana_sonnet_renova_em')))] %}{% endif -%}
 {%- if a.get('extra_ativo') in [true, 'True'] %}{% set partes = partes + [item('ext', a.get('extra_pct'), cor_faixa(a.get('extra_pct')))] %}{% endif -%}

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Claude Code status line: model · folder · context · plan usage bars
 #
-#   Opus · 📁 my-project · context ██▌░░░ 41% · ↻ 1h47 █▌░░░░ 27% · ↻ Thu ▌░░░░░ 10%
+#   Opus · 📁 my-project · context ██▌░░░ 41% · ↻ 1h47 █▌░░░░ 27% · ↻ Thu ▌░░░░░ 10% (-32%)
 #
 # Context: green < 60%, yellow 60–80%, red >= 80%       (CC_BARS_CONTEXT_YELLOW / _RED)
 # Session (5 h window): label = time left until reset; color by usage
@@ -11,6 +11,8 @@
 #   (used% / fraction of the week already elapsed):
 #   green < 90%, yellow 90–100%, red > 100%  (CC_BARS_PACE_YELLOW / _RED)
 #   During the first ~3 h of the week the projection is noise: uses the session bands.
+#   After the week's % a (+N%) / (-N%) shows how far above/below you are vs. the pro-rata
+#   usage for the time already elapsed (same color as the bar).
 #
 # Data comes from the JSON Claude Code pipes into the status line
 # (rate_limits.five_hour / seven_day: used_percentage + resets_at), so no API calls.
@@ -51,8 +53,10 @@ bar() {
         else lbl = "5h"
       } else {
         f = (r != "") ? 1 - (r - now) / 604800 : 0
+        delta = ""
         if (f < 0.02) c = band(p)
-        else { if (f > 1) f = 1; proj = p / f; c = proj > pr ? 31 : (proj >= py ? 33 : 32) }
+        else { if (f > 1) f = 1; proj = p / f; c = proj > pr ? 31 : (proj >= py ? 33 : 32)
+               dv = p - f * 100; delta = sprintf(" (%s%d%%)", dv >= 0 ? "+" : "-", int((dv < 0 ? -dv : dv) + 0.5)) }
         split(day, d, " "); sub(/\.$/, "", d[2])
         lbl = (r == "") ? "7d" : (d[1] == today ? "↻ " d[3] : "↻ " d[2])
       }
@@ -60,6 +64,7 @@ bar() {
       b = ""; for (i = 0; i < full; i++) b = b "█"; if (h) b = b "▌"
       t = ""; for (i = full + h; i < N; i++) t = t "░"
       printf "%s \033[%dm%s\033[90m%s\033[0m %d%%", lbl, c, b, t, int(p + 0.5)
+      if (delta != "") printf "\033[%dm%s\033[0m", c, delta
     }'
 }
 

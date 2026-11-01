@@ -12,6 +12,8 @@ optionally, on a **Home Assistant** dashboard.
   Color by **pace**: projects where you'll end the week if you keep the current rate
   (`used% ÷ fraction of the week elapsed`): 🟢 < 90% · 🟡 90–100% · 🔴 > 100% (you'll run out).
   The first ~3 h of each week use the session bands, since the projection is noise.
+  The weekly % is followed by `(+N%)` / `(-N%)`: how many points above/below the pro-rata
+  usage for the elapsed part of the week you are (e.g. `14% (-43%)` = well under budget).
 
 ## 1. Claude Code status line (no API calls)
 
