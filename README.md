@@ -14,6 +14,10 @@ optionally, on a **Home Assistant** dashboard.
   The first ~3 h of each week use the session bands, since the projection is noise.
   The weekly % is followed by `(+N%)` / `(-N%)`: how many points above/below the pro-rata
   usage for the elapsed part of the week you are (e.g. `14% (-43%)` = well under budget).
+- **Spent this session** — with `CC_BARS_BALANCE_CMD` set, the status line also shows how much
+  that balance dropped since the session started (`💸 $0.42`), i.e. the actual money billed
+  this session. By default it only shows in **DeepSeek sessions**, the only ones where a DeepSeek
+  prepaid balance moves (a top-up — balance going up — is ignored, never subtracted).
 
 ## 1. Claude Code status line (no API calls)
 
@@ -32,7 +36,7 @@ cp statusline/statusline.sh ~/.claude/statusline.sh && chmod +x ~/.claude/status
 
 Needs `jq`, `awk` and GNU `date`. Weekday names follow your locale (`LC_TIME`/`LANG`).
 Tunables (env): `CC_BARS_WIDTH` (6), `CC_BARS_CONTEXT_YELLOW` (60), `CC_BARS_CONTEXT_RED` (80), `CC_BARS_SESSION_YELLOW` (40), `CC_BARS_SESSION_RED` (75),
-`CC_BARS_PACE_YELLOW` (90), `CC_BARS_PACE_RED` (100).
+`CC_BARS_PACE_YELLOW` (90), `CC_BARS_PACE_RED` (100), `CC_BARS_SPEND` (auto), `CC_BARS_SPEND_LABEL` (💸).
 
 ### Optional: show an API balance
 
@@ -49,6 +53,18 @@ export CC_BARS_BALANCE_CMD='curl -s -H "Authorization: Bearer $DEEPSEEK_API_KEY"
 # ...or read a Home Assistant sensor over ssh
 export CC_BARS_BALANCE_CMD='ssh -o BatchMode=yes me@homeassistant "..."'
 ```
+
+**Spent this session** — whenever `CC_BARS_BALANCE_CMD` is set, the status line also shows
+`💸 $0.42` right before the balance: the running decrease of that value since the current
+Claude Code session started (keyed by session id, so it resets each new session). For a
+DeepSeek prepaid balance this is exactly the money the session has cost. It is a delta of
+whatever `CC_BARS_BALANCE_CMD` prints, so it tracks the cached value's resolution (~1 update
+per `CC_BARS_BALANCE_TTL`); a balance going up (top-up/refill) is ignored rather than
+subtracted. By default it only appears in **DeepSeek sessions** — the model of the session
+(`model.id` / `display_name`, case-insensitive) must contain `deepseek`, since that is where
+the balance actually moves; a session on a Claude model shows just the balance. `CC_BARS_SPEND`
+takes `auto` (default, DeepSeek only), `1` (always) or `0` (never); relabel with
+`CC_BARS_SPEND_LABEL`.
 
 Set it where Claude Code starts (shell profile, or the `env` block of `~/.claude/settings.json`).
 

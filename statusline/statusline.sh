@@ -19,18 +19,29 @@
 #   The value is cached (CC_BARS_BALANCE_TTL seconds, default 300) and refreshed in the background,
 #   so a slow command never delays the status line. Label: CC_BARS_BALANCE_LABEL (default 🐳).
 #
+# "Spent this session" (with CC_BARS_BALANCE_CMD set): the status line remembers the balance at the
+#   start of each session (keyed by session id) and shows the running decrease as "💸 $0.42" just
+#   before the balance — the money actually billed this session (a top-up — balance going up — is
+#   ignored, never subtracted). By default it only appears in sessions of a DeepSeek model, the only
+#   ones where a DeepSeek balance moves (checked case-insensitively in model.id / display_name).
+#   CC_BARS_SPEND: auto (default: DeepSeek sessions only) | 1 (always) | 0 (never).
+#   Label: CC_BARS_SPEND_LABEL.
+#
 # Data comes from the JSON Claude Code pipes into the status line
 # (rate_limits.five_hour / seven_day: used_percentage + resets_at), so no API calls.
 # Needs: jq, awk, GNU date. Weekday names follow your LC_TIME/LANG.
 
 input=$(cat)
 model=$(echo "$input" | jq -r '.model.display_name // "?"')
+model_id=$(echo "$input" | jq -r '.model.id // empty')
 dir=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // ""')
 pct=$(echo "$input" | jq -r '.context_window.used_percentage // 0')
 h5=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
 d7=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
 r5=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
 r7=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
+sid=$(echo "$input" | jq -r '.session_id // empty')
+[ -z "$sid" ] && sid=${CLAUDE_CODE_SESSION_ID:-main}
 
 N=${CC_BARS_WIDTH:-6}
 CY=${CC_BARS_CONTEXT_YELLOW:-60}
@@ -44,6 +55,19 @@ BAL_TTL=${CC_BARS_BALANCE_TTL:-300}
 BAL_Y=${CC_BARS_BALANCE_YELLOW:-2}
 BAL_R=${CC_BARS_BALANCE_RED:-1}
 BAL_LABEL=${CC_BARS_BALANCE_LABEL:-🐳}
+SPEND_ON=${CC_BARS_SPEND:-auto}
+SPEND_LABEL=${CC_BARS_SPEND_LABEL:-💸}
+
+# The balance only moves in sessions that bill against it (DeepSeek), so "spent this session"
+# is shown there by default: auto (deepseek* model), 1 (always) or 0 (never).
+spend_show=0
+case "$SPEND_ON" in
+  0|off|no|false) ;;
+  1|on|yes|true) spend_show=1 ;;
+  *) ms=$(printf '%s %s' "$model_id" "$model" | tr 'A-Z' 'a-z')
+     case "$ms" in *[a-z]*) ;; *) ms=$(printf '%s' "${ANTHROPIC_MODEL:-}" | tr 'A-Z' 'a-z') ;; esac
+     case "$ms" in *deepseek*) spend_show=1 ;; esac ;;
+esac
 
 out=$(printf '\033[36m%s\033[0m · 📁 \033[97m%s\033[0m' "$model" "${dir##*/}")
 
@@ -95,6 +119,23 @@ if [ -n "$BAL_CMD" ]; then
   fi
   bal=$(cat "$cache" 2>/dev/null)
   if [[ "$bal" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+    if [ "$spend_show" = 1 ]; then
+      # "spent this session": running total of how much the balance has dropped since this
+      # session started. Keyed by session id (resets each new session); a top-up (balance up)
+      # is ignored rather than subtracted, and `last` just re-bases to the new balance.
+      state=${XDG_CACHE_HOME:-$HOME/.cache}/cc-usage-bars-spend
+      prev_sid=""; last=""; spent=""
+      if [ -f "$state" ]; then IFS=$'\t' read -r prev_sid last spent < "$state"; fi
+      if [ "$prev_sid" != "$sid" ] || [ -z "$last" ]; then
+        last="$bal"; spent=0
+      else
+        read -r spent last <<< "$(LC_NUMERIC=C awk -v l="$last" -v v="$bal" -v s="$spent" 'BEGIN {
+            d = l - v; if (d > 0) s += d; printf "%.4f %.4f", s, v }')"
+      fi
+      mkdir -p "$(dirname "$state")"
+      printf '%s\t%s\t%s\n' "$sid" "$last" "$spent" > "$state"
+      out+=$(LC_NUMERIC=C printf ' · %s \033[97m$%.2f\033[0m' "$SPEND_LABEL" "$spent")
+    fi
     c=$(awk -v v="$bal" -v y="$BAL_Y" -v r="$BAL_R" 'BEGIN { print (v < r ? 31 : (v < y ? 33 : 97)) }')
     out+=$(LC_NUMERIC=C printf ' · %s \033[%sm$%.2f\033[0m' "$BAL_LABEL" "$c" "$bal")
   fi
