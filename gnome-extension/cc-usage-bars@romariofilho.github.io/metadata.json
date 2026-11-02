@@ -1,0 +1,7 @@
+{
+  "uuid": "cc-usage-bars@romariofilho.github.io",
+  "name": "Claude Code usage bars",
+  "description": "Claude Code plan usage (5 h session + weekly) as colored bars in the top panel, read from a Home Assistant sensor.",
+  "shell-version": ["50"],
+  "url": "https://github.com/romariofilho/cc-usage-bars"
+}

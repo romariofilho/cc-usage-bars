@@ -109,6 +109,39 @@ balance is colored 🔴 < $1 · 🟡 < $2, and the package notifies once when it
 (edit the `notify.notify` action to your service). If no update arrives for 30 min the card
 shows ⚠.
 
+## 3. GNOME Shell top-panel bars (optional)
+
+`gnome-extension/` draws the session and weekly gauges (same colors and pace logic as the status
+line, with the percentage inside each gauge) in the GNOME top panel, plus the DeepSeek balance
+(`🐳 $5.59`, from `sensor.deepseek_saldo`; red < $1, yellow < $2; `"deepseekEntity": ""` hides it).
+The menu shows reset times, plan and last update; `barWidth` / `barHeight` size the gauges. It reads the
+attributes of `sensor.claude_code_sessao` from Home Assistant's REST API, so it needs the package
+from section 2. There is no context bar: that number only exists inside a Claude Code session.
+Tested on GNOME Shell 50.
+
+```bash
+gnome-extension/install.sh     # symlinks the extension, creates ~/.config/cc-usage-bars/config.json
+# edit the config (below), log out/in once (Wayland), then:
+gnome-extensions enable cc-usage-bars@romariofilho.github.io
+```
+
+Two ways to reach Home Assistant, set in `~/.config/cc-usage-bars/config.json`:
+
+- **`"ssh": "root@homeassistant.local"`** — runs `ssh` (key-based, `BatchMode`) into the HAOS
+  *Advanced SSH & Web Terminal* add-on and queries the Core API with its `$SUPERVISOR_TOKEN`.
+  No token is stored on the desktop.
+- **`"url"` + `"token"`** — plain REST with a long-lived access token (HA profile › Security).
+  Used when `ssh` is empty.
+
+Errors show in the extension's menu and in `journalctl --user -b | grep cc-usage-bars`.
+
+The bars dim when the sensor has not updated for `staleMinutes` (30).
+
+Developing: `extension.js` is a thin loader that re-imports `impl.js` with a fresh `?v=` on every
+`enable()`, so after editing `impl.js` a `gnome-extensions disable … && gnome-extensions enable …`
+applies the change without logging out (GNOME caches ES modules by URL; on Wayland the shell can't
+be restarted). Each reload leaves the old module in memory until the next login.
+
 Code comments and entity names are in Portuguese (pt-BR); PRs welcome.
 
 ## License

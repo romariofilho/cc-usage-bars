@@ -1,0 +1,9 @@
+{
+  "ssh": "root@homeassistant.local",
+  "entity": "sensor.claude_code_sessao",
+  "refreshSeconds": 60,
+  "staleMinutes": 30,
+  "barWidth": 54,
+  "barHeight": 22,
+  "fontSize": 13
+}
