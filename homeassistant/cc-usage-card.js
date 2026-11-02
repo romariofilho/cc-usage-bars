@@ -13,6 +13,8 @@
  * deepseek_entity: sensor.deepseek_saldo   # default; '' hides it
  * deepseek_icon: /local/deepseek.svg       # default; '' shows "DS" text instead
  * size: normal | large                     # large for wall displays (nest_hub)
+ * radius: 0                                # gauge corner radius in px (0 = square)
+ * track_color: '#4B5563'                   # unfilled part of the gauge
  */
 const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const GREEN = '#2EC27E', YELLOW = '#F5C211', RED = '#E01B24', AMBER = '#E5A50A';
@@ -67,6 +69,8 @@ class CCUsageCard extends HTMLElement {
       deepseek_entity: 'sensor.deepseek_saldo',
       deepseek_icon: '/local/deepseek.svg',
       size: 'normal',
+      radius: 0,  // gauge corner radius in px; 0 = square
+      track_color: '#4B5563',  // unfilled part of the gauge
       ...config,
     };
     if (!this.shadowRoot) this.attachShadow({mode: 'open'});
@@ -111,7 +115,7 @@ class CCUsageCard extends HTMLElement {
     if (!this._config || !this._hass || !this.shadowRoot) return;
     const now = Date.now();
     const big = this._config.size === 'large';
-    const h = big ? 34 : 20, w = big ? 80 : 54, fs = big ? 19 : 12, lfs = big ? 24 : 14;
+    const h = big ? 28 : 20, w = big ? 68 : 54, fs = big ? 15 : 12, lfs = big ? 18 : 14;
 
     const data = this._items(now);
     const parts = [];
@@ -132,7 +136,7 @@ class CCUsageCard extends HTMLElement {
         const ok = ds.attributes.disponivel !== false && ds.attributes.disponivel !== 'False';
         const color = !ok || bal < 1 ? RED : bal < 2 ? YELLOW : 'inherit';
         const icon = this._config.deepseek_icon
-          ? `<img src="${this._config.deepseek_icon}" height="${big ? 23 : 16}" alt="DS">` : 'DS';
+          ? `<img src="${this._config.deepseek_icon}" height="${big ? 18 : 16}" alt="DS">` : 'DS';
         parts.push(`<span class="it"><span class="ds">${icon}</span>
           <span class="bal" style="color:${color}">$${bal.toFixed(2)}</span></span>`);
       }
@@ -147,13 +151,15 @@ class CCUsageCard extends HTMLElement {
                 gap: ${big ? 8 : 6}px ${big ? 26 : 16}px; padding: ${big ? 6 : 4}px 0; }
         .it { display: inline-flex; align-items: center; gap: ${big ? 8 : 5}px; }
         .lbl, .ds { font-size: ${lfs}px; color: var(--secondary-text-color); white-space: nowrap; }
+        .ds { display: inline-flex; align-items: center; line-height: 0; }
+        .ds img { display: block; }
         .gauge { position: relative; display: inline-block; width: ${w}px; height: ${h}px;
-                 border-radius: ${h / 2}px; overflow: hidden;
-                 background: var(--divider-color, rgba(127,127,127,.35)); }
-        .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: ${h / 2}px; }
+                 border-radius: ${this._config.radius}px; overflow: hidden;
+                 background: ${this._config.track_color}; }
+        .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: ${this._config.radius}px; }
         .pct { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
                font-size: ${fs}px; font-weight: 700; color: #fff; text-shadow: 0 0 3px rgba(0,0,0,.85); }
-        .dl { font-size: ${big ? 18 : 12}px; font-weight: 600; }
+        .dl { font-size: ${big ? 14 : 12}px; font-weight: 600; }
         .bal { font-size: ${lfs}px; font-weight: 700; }
         .warn { font-size: ${lfs}px; color: ${AMBER}; }
       </style>
