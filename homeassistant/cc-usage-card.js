@@ -86,6 +86,21 @@ class CCUsageCard extends HTMLElement {
     return 1;
   }
 
+  // Browser clock may be off: take the time from the HA server (HTTP Date header) and keep the offset.
+  _syncClock() {
+    const t0 = Date.now();
+    if (this._clockAt && t0 - this._clockAt < 600000) return;
+    this._clockAt = t0;
+    fetch('/manifest.json', {cache: 'no-store'}).then(r => {
+      const d = Date.parse(r.headers.get('Date'));
+      if (Number.isNaN(d)) return;
+      const t1 = Date.now();
+      // Date has 1 s resolution (truncated): add 0.5 s, compare with the request midpoint
+      this._offset = d + 500 - (t0 + t1) / 2;
+      this._render();
+    }).catch(() => {});
+  }
+
   _items(now) {
     const st = this._hass?.states?.[this._config.entity];
     if (!st) return null;
@@ -113,7 +128,8 @@ class CCUsageCard extends HTMLElement {
 
   _render() {
     if (!this._config || !this._hass || !this.shadowRoot) return;
-    const now = Date.now();
+    this._syncClock();
+    const now = Date.now() + (this._offset || 0);
     const big = this._config.size === 'large';
     const h = big ? 28 : 20, w = big ? 68 : 54, fs = big ? 15 : 12, lfs = big ? 18 : 14;
 
