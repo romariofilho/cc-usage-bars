@@ -1,5 +1,7 @@
 {
   "ssh": "root@homeassistant.local",
+  "remoteUrl": "https://xxxx.ui.nabu.casa",
+  "token": "long-lived access token (used by remoteUrl)",
   "entity": "sensor.claude_code_sessao",
   "refreshSeconds": 60,
   "staleMinutes": 30,

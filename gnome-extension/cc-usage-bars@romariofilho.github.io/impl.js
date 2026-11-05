@@ -25,6 +25,7 @@ const CONFIG_PATH =GLib.build_filenamev([GLib.get_user_config_dir(), 'cc-usage-b
 const DEFAULTS = {
     url: 'http://homeassistant.local:8123',
     token: '',
+    remoteUrl: '',  // Nabu Casa (https://xxxx.ui.nabu.casa): fallback when HA is unreachable locally; needs token
     ssh: '',
     entity: 'sensor.claude_code_sessao',
     refreshSeconds: 60,
@@ -216,13 +217,13 @@ class Indicator extends PanelMenu.Button {
             ? `Semana (7 d): ${Math.round(d.weekPct)}% · renova ${fmt(d.weekResets)}` : 'Semana (7 d): —';
         this._lines.plan.label.text = d ? `Plano: ${d.plan || '?'}` : 'Plano: —';
         this._lines.updated.label.text = d && d.updatedMs !== null
-            ? `Atualizado: ${new Date(d.updatedMs).toLocaleTimeString()}${stale ? '  ⚠ desatualizado' : ''}` : 'Atualizado: —';
+            ? `Atualizado: ${new Date(d.updatedMs).toLocaleTimeString()}${this._remote ? '  ☁ via Nabu Casa' : ''}${stale ? '  ⚠ desatualizado' : ''}` : 'Atualizado: —';
         this._lines.error.visible = !!this._error;
         this._lines.error.label.text = this._error ? `⚠ ${this._error}` : '';
     }
 
-    async _fetchRest(c, entity) {
-        const msg = Soup.Message.new('GET', `${c.url.replace(/\/$/, '')}/api/states/${entity}`);
+    async _fetchRest(c, entity, base = c.url) {
+        const msg = Soup.Message.new('GET', `${base.replace(/\/$/, '')}/api/states/${entity}`);
         msg.request_headers.append('Authorization', `Bearer ${c.token}`);
         const bytes = await this._session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, this._cancellable);
         if (msg.get_status() !== Soup.Status.OK)
@@ -245,15 +246,38 @@ class Indicator extends PanelMenu.Button {
         return out.split('\n').filter(l => l.trim());
     }
 
-    // main sensor (required) + DeepSeek balance (optional: a failure there is ignored)
+    async _fetchRestAll(c, base) {
+        const ds = c.deepseekEntity;
+        const bal = ds ? this._fetchRest(c, ds, base).catch(() => '') : Promise.resolve('');
+        return {main: await this._fetchRest(c, c.entity, base), ds: await bal};
+    }
+
+    // main sensor (required) + DeepSeek balance (optional: a failure there is ignored).
+    // Local first (ssh or url); if HA is not reachable (away from home) and remoteUrl+token are set,
+    // fall back to the Nabu Casa remote URL.
     async _fetchAll(c) {
         const ds = c.deepseekEntity;
-        if (c.ssh) {
-            const [main, bal = ''] = await this._fetchSsh(c, ds ? [c.entity, ds] : [c.entity]);
-            return {main, ds: bal};
+        const wasRemote = this._remote;
+        this._remote = false;
+        try {
+            if (c.ssh) {
+                const [main, bal = ''] = await this._fetchSsh(c, ds ? [c.entity, ds] : [c.entity]);
+                return {main, ds: bal};
+            }
+            if (c.token && c.url)
+                return await this._fetchRestAll(c, c.url);
+            throw new Error('sem acesso local');
+        } catch (e) {
+            if (e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED) || !c.remoteUrl || !c.token)
+                throw e;
+            const r = await this._fetchRestAll(c, c.remoteUrl).catch(e2 => {
+                throw new Error(`local: ${e.message}; remoto: ${e2.message}`);
+            });
+            if (!wasRemote)   // log only on the transition, not on every refresh
+                console.log('cc-usage-bars: HA local inalcançável, lendo via Nabu Casa');
+            this._remote = true;
+            return r;
         }
-        const bal = ds ? this._fetchRest(c, ds).catch(() => '') : Promise.resolve('');
-        return {main: await this._fetchRest(c, c.entity), ds: await bal};
     }
 
     async _refresh() {

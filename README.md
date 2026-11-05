@@ -133,6 +133,11 @@ Two ways to reach Home Assistant, set in `~/.config/cc-usage-bars/config.json`:
 - **`"url"` + `"token"`** — plain REST with a long-lived access token (HA profile › Security).
   Used when `ssh` is empty.
 
+**Away from home:** set `"remoteUrl"` (your Nabu Casa URL) and `"token"` (long-lived access token). When
+the local path (`ssh` or `url`) fails, the extension reads the same sensors through Nabu Casa and the menu
+shows `☁ via Nabu Casa`. (A webhook can't be used for this: HA webhooks only receive data, they can't
+return the sensor values.)
+
 Errors show in the extension's menu and in `journalctl --user -b | grep cc-usage-bars`.
 
 The bars dim when the sensor has not updated for `staleMinutes` (30).
