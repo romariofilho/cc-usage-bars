@@ -3,6 +3,7 @@
 #
 #   Opus · 📁 my-project · context ██▌░░░ 41% · ↻ 1h47 █▌░░░░ 27% · ↻ Thu ▌░░░░░ 10% (-32%)
 #
+# Model name is cyan, or red when the model is Haiku (CC_BARS_HAIKU_COLOR to change the ANSI code).
 # Context: green < 60%, yellow 60–80%, red >= 80%       (CC_BARS_CONTEXT_YELLOW / _RED)
 # Session (5 h window): label = time left until reset; color by usage
 #   green < 40%, yellow 40–75%, red > 75%   (CC_BARS_SESSION_YELLOW / _RED)
@@ -69,7 +70,10 @@ case "$SPEND_ON" in
      case "$ms" in *deepseek*) spend_show=1 ;; esac ;;
 esac
 
-out=$(printf '\033[36m%s\033[0m · 📁 \033[97m%s\033[0m' "$model" "${dir##*/}")
+# Model name: red on Haiku (CC_BARS_HAIKU_COLOR, ANSI code, default 31), cyan otherwise
+mc=36
+case "$(printf '%s %s' "$model_id" "$model" | tr 'A-Z' 'a-z')" in *haiku*) mc=${CC_BARS_HAIKU_COLOR:-31} ;; esac
+out=$(printf '\033[%sm%s\033[0m · 📁 \033[97m%s\033[0m' "$mc" "$model" "${dir##*/}")
 
 # bar <pct> <session|week> <resets_at epoch> -> "label bar pct%" with ANSI colors
 bar() {
