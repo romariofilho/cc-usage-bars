@@ -59,7 +59,7 @@ export const register: Register = on => {
             label="Compactar"
             onPress={() => {
               $.ui.toast('Compactando…')
-              return $.session.compact()
+              return $.prompt.fill({ text: '/compact' })
             }}
           />
         ) : null}
