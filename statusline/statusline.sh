@@ -4,7 +4,8 @@
 #   Opus · 📁 my-project · context ██▌░░░ 41% · ↻ 1h47 █▌░░░░ 27% · ↻ Thu ▌░░░░░ 10% (-32%)
 #
 # Model name is cyan, or red when the model is Haiku (CC_BARS_HAIKU_COLOR to change the ANSI code).
-# Context: green < 60%, yellow 60–80%, red >= 80%       (CC_BARS_CONTEXT_YELLOW / _RED)
+# Context: green < 30%, yellow 30–40%, red >= 40% + "⚠ /compact" warning   (CC_BARS_CONTEXT_YELLOW / _RED)
+#   Same limits as desktop-mod/ (keep both in sync).
 # Session (5 h window): label = time left until reset; color by usage
 #   green < 40%, yellow 40–75%, red > 75%   (CC_BARS_SESSION_YELLOW / _RED)
 # Week (7 d window): label = reset weekday (or HH:MM on reset day); color by PACE:
@@ -45,8 +46,8 @@ sid=$(echo "$input" | jq -r '.session_id // empty')
 [ -z "$sid" ] && sid=${CLAUDE_CODE_SESSION_ID:-main}
 
 N=${CC_BARS_WIDTH:-6}
-CY=${CC_BARS_CONTEXT_YELLOW:-60}
-CR=${CC_BARS_CONTEXT_RED:-80}
+CY=${CC_BARS_CONTEXT_YELLOW:-30}
+CR=${CC_BARS_CONTEXT_RED:-40}
 SY=${CC_BARS_SESSION_YELLOW:-40}
 SR=${CC_BARS_SESSION_RED:-75}
 PY=${CC_BARS_PACE_YELLOW:-90}
@@ -107,6 +108,9 @@ bar() {
 }
 
 out+=" · $(bar "$pct" context)"
+if awk -v p="$pct" -v r="$CR" 'BEGIN { exit !(p >= r) }'; then
+  out+=$(printf ' \033[1;31m⚠ /compact\033[0m')
+fi
 
 if [ -n "$h5" ]; then
   out+=" · $(bar "$h5" session "$r5")"
