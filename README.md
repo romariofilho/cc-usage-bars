@@ -35,7 +35,7 @@ cp statusline/statusline.sh ~/.claude/statusline.sh && chmod +x ~/.claude/status
 ```
 
 Needs `jq`, `awk` and GNU `date`. Weekday names follow your locale (`LC_TIME`/`LANG`).
-Tunables (env): `CC_BARS_WIDTH` (6), `CC_BARS_CONTEXT_YELLOW` (60), `CC_BARS_CONTEXT_RED` (80), `CC_BARS_SESSION_YELLOW` (40), `CC_BARS_SESSION_RED` (75),
+Tunables (env): `CC_BARS_WIDTH` (6), `CC_BARS_CONTEXT_YELLOW` (30), `CC_BARS_CONTEXT_RED` (40), `CC_BARS_SESSION_YELLOW` (40), `CC_BARS_SESSION_RED` (75),
 `CC_BARS_PACE_YELLOW` (90), `CC_BARS_PACE_RED` (100), `CC_BARS_SPEND` (auto), `CC_BARS_SPEND_LABEL` (💸).
 
 ### Optional: show an API balance
@@ -67,6 +67,20 @@ takes `auto` (default, DeepSeek only), `1` (always) or `0` (never); relabel with
 `CC_BARS_SPEND_LABEL`.
 
 Set it where Claude Code starts (shell profile, or the `env` block of `~/.claude/settings.json`).
+
+### Claude desktop app: context bar mod (optional)
+
+`desktop-mod/` is a Claude Code mod for the desktop app: a bar above the prompt with the project
+folder and the context used (green < 30%, yellow 30–40%, red >= 40%, same limits as the status
+line), plus a **Compactar** button past 40% that puts `/compact` in the prompt box (press Enter).
+At a terminal session's prompt:
+
+```
+/plugin install cc-context-bar --marketplace romariofilho/cc-usage-bars
+```
+
+or from a shell: `claude plugin install cc-context-bar --marketplace romariofilho/cc-usage-bars`.
+The bar is hidden between a `/compact` and the next model reply (no context figure yet).
 
 ## 2. Home Assistant (optional)
 
