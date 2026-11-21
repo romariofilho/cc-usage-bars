@@ -1,0 +1,12 @@
+{
+  "name": "cc-usage-bars",
+  "owner": { "name": "romariofilho" },
+  "metadata": { "description": "Claude Code usage bars: context bar mod for the desktop app." },
+  "plugins": [
+    {
+      "name": "cc-context-bar",
+      "source": "./desktop-mod",
+      "description": "Context usage bar above the prompt: green up to 30%, yellow up to 40%, red above, with a compact warning and a Compactar button past 40%."
+    }
+  ]
+}
