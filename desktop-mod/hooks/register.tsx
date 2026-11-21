@@ -44,10 +44,14 @@ export const register: Register = on => {
 
     const { Box, Button, Text } = $.ui.resolve(e)
     const color = band(pct)
+    const cwd = await $.session.cwd()
+    const folder = cwd.split('/').filter(Boolean).pop() ?? cwd
 
     return (
       <Box>
-        <Text>context </Text>
+        <Text>📁 </Text>
+        <Text bold>{folder}</Text>
+        <Text> · context </Text>
         <Text color={color}>{bar(pct)}</Text>
         <Text color={color}> {Math.round(pct)}%</Text>
         {pct >= RED ? (
