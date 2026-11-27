@@ -40,12 +40,25 @@ export const register: Register = on => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
     const pct = (await $.session.usage()).context.percent
-    if (pct === undefined) return next(e)
 
     const { Box, Button, Text } = $.ui.resolve(e)
-    const color = band(pct)
     const cwd = await $.session.cwd()
     const folder = cwd.split('/').filter(Boolean).pop() ?? cwd
+
+    // No context figure yet (new session before the first reply, or right after /compact):
+    // keep the folder visible and leave the bar empty instead of hiding the whole row.
+    if (pct === undefined) {
+      return (
+        <Box>
+          <Text>📁 </Text>
+          <Text bold>{folder}</Text>
+          <Text> · context </Text>
+          <Text color="#8b949e">{'░'.repeat(WIDTH)} aguardando a primeira resposta</Text>
+        </Box>
+      )
+    }
+
+    const color = band(pct)
 
     return (
       <Box>
